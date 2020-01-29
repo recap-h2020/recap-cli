@@ -1,0 +1,31 @@
+- name: Launch VM with IP
+  os_server:
+    image: coreos-2079
+    name: '{{ VM_NAME }}'
+    floating_ip_pools: extnet
+    key_name: recap_demo
+    availability_zone: '{{ VM_AZ }}'
+    flavor: '{{ VM_FLAVOUR }}'
+    state: present
+    security_groups:
+      - sec_recap_demo
+      - default
+    network: '{{ NETWORK_NAME }}'
+    meta:
+      site: '{{ SITE_NAME }}'
+      type: '{{ TYPE }}'
+      groups: '{{ SITE_NAME }},{{ TYPE }}'
+    timeout: 360
+    userdata: '{{ lookup("file", "ignition/ignition-agent.ign") | string }}'
+  register: recap_host
+- name: Add host VM with IP to inventory
+  add_host:
+    name: '{{ recap_host.server.name }}'
+    groups:
+      - '{{ SITE_NAME }}'
+      - '{{ TYPE }}'
+    ansible_host: '{{ recap_host.server.private_v4 }}'
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no -o ProxyCommand="ssh -W %h:%p -q core@{{ MASTER_HOST }} -i {{ PRIVATE_KEY_FILE }} -o ControlMaster=auto -o ControlPersist=30m -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"'
+    ansible_user: 'core'
+    ansible_ssh_private_key_file: '{{ PRIVATE_KEY_FILE }}'
+    ansible_python_interpreter: '/home/core/bin/python'

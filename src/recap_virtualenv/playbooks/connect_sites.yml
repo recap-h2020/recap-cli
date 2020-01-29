@@ -1,0 +1,18 @@
+- hosts: localhost
+  gather_facts: no
+  roles:
+    - network
+    - dc_connecting_router
+  vars:
+    NETWORK_NAME: "{{ INTER_NETWORK_NAME }}"
+    SUBNET_NAME: "{{ INTER_SUBNET_NAME }}"
+    NETWORK_ADDRESS: "{{ INTER_NETWORK_ADDRESS }}"
+    INTER_NETWORK_NAME: "{{ INTER_NETWORK_NAME }}"
+    INTER_SUBNET_NAME: "{{ INTER_SUBNET_NAME }}"
+    INTER_NETWORK_ADDRESS: "{{ INTER_NETWORK_ADDRESS }}"
+    SITES: "{{ SITES }}"
+    INITIAL_NETWORK_NAME: "{{ NETWORK_NAME }}"
+    INITIAL_SUBNET_NAME: "{{ SUBNET_NAME }}"
+    INITIAL_NETWORK_ADDRESS: "{{ NETWORK_ADDRESS }}"
+    INITIAL_ROUTER_NAME: "{{ ROUTER_NAME }}"
+    INITIAL_ROUTER_IP: "{{ ROUTER_IP }}"

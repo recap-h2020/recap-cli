@@ -1,0 +1,15 @@
+- name: create network
+  os_network:
+    state: present
+    name: '{{ NETWORK_NAME }}'
+    admin_state_up: yes
+    external: no
+    wait: yes
+    shared: no
+- name: create subnet
+  os_subnet:
+    state: present
+    name: '{{ SUBNET_NAME }}'
+    network_name: '{{ NETWORK_NAME }}'
+    cidr: '{{ NETWORK_ADDRESS }}'
+    wait: yes

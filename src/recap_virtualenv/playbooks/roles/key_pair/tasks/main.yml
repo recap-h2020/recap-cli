@@ -1,0 +1,5 @@
+- name: create key pair
+  os_keypair:
+    state: present
+    name: recap_demo
+    public_key_file: '{{ PUBLIC_KEY_FILE }}'

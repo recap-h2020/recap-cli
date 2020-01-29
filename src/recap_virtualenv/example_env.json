@@ -1,0 +1,36 @@
+{
+  "keys": {
+    "public": "/opt/app/recap_virtualenv/keys/cloud_key.public",
+    "private": "/opt/app/recap_virtualenv/keys/cloud_key.pem"
+  },
+  "sites": [
+    {
+      "name": "A",
+      "network": "192.168.0.0/24",
+      "router-ip": "192.168.0.1",
+      "master": true,
+      "hosts": {
+        "r_infra": 1,
+        "r_user": 2,
+        "admin": 1,
+        "global": 1
+      },
+      "parent": null
+    },
+    {
+      "name": "B",
+      "network": "192.168.1.0/24",
+      "router-ip": "192.168.1.1",
+      "master": false,
+      "hosts": {
+        "r_infra": 1,
+        "r_user": 2
+      },
+      "parent": {
+        "name": "A",
+        "inter-network": "192.168.10.0/24",
+        "inter-ports": ["192.168.10.10", "192.168.10.20"]
+      }
+    }
+  ]
+}

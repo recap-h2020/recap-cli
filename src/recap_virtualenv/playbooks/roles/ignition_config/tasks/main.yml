@@ -1,0 +1,4 @@
+- name: config transpiler server
+  command: "./ignition/ct -in-file ignition/ignition-server.yml -out-file ignition/ignition-server.ign -strict -platform openstack-metadata"
+- name: config transpiler agent
+  command: "./ignition/ct -in-file ignition/ignition-agent.yml -out-file ignition/ignition-agent.ign -strict -platform openstack-metadata"

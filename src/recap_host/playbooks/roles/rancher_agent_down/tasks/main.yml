@@ -1,0 +1,6 @@
+- name: Stop Rancher Agent Docker Container
+  docker_container:
+    name: rancher-agent
+    image: rancher/agent:v1.2.11
+    state: stopped
+    stop_timeout: 60

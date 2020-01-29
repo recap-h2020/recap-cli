@@ -1,0 +1,19 @@
+- name: Install docker-py
+  become: '{{ PIP_AS_ROOT | bool }}'
+  pip:
+    name: docker-py
+    executable: '{{ PIP_EXECUTABLE }}'
+
+- name: Start Rancher Agent
+  docker_container:
+    name: ra
+    pull: yes
+    image: rancher/agent:v1.2.11
+    state: started
+    privileged: yes
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/rancher:/var/lib/rancher
+    command: "{{ RANCHER_SERVER_URL }}/v2-beta/projects/{{ RANCHER_ENV_ID }}/scripts/{{ RANCHER_REG_TOKEN }}"
+    env:
+      CATTLE_HOST_LABELS: "type={{ HOST_TYPE }}&site={{ HOST_SITE }}&host={{ HOST_ID }}{{ EXTRA_LABELS }}"

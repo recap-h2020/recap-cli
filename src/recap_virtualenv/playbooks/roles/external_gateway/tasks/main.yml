@@ -1,0 +1,2 @@
+  - name: set external gateway
+    shell: openstack router set --external-gateway extnet "{{ ROUTER_NAME }}"

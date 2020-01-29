@@ -1,0 +1,315 @@
+version: "2"
+services:
+  ###############################################
+  # 0 CLOUD INFRASTRUCTURE DEPLOYMENT
+  ###############################################
+
+  dashboard:
+    image: grafana/grafana:5.1.3
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=recap$$123
+      - GF_SECURITY_SECRET_KEY=su2Txng2zxxcie
+      - GF_DASHBOARDS_JSON_ENABLED=true
+      - GF_INSTALL_PLUGINS=briangann-gauge-panel
+    ports:
+      - 3000:3000
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.sidekicks: dashboard-config,rancher-grafana-datasource
+      io.rancher.scheduler.affinity:host_label: type=$GLOBAL_SITE_NAME,master=true
+    volumes_from:
+      - dashboard-config
+      - rancher-grafana-datasource
+
+  dashboard-config:
+    image: ${DASHBOARD_CONFIG_IMAGE}
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.container.start_once: "true"
+
+  rancher-grafana-datasource:
+    image: ${RANCHER_GRAFANA_DATASOURCE_IMAGE}
+    tty: true
+    environment:
+      GLOBAL_ADDRESS: consul
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+
+  consul:
+    image: consul:1.6.2
+    ports:
+      - 8500:8500/tcp
+      - 8600:8600/tcp
+      - 8301:8301/tcp
+      - 8300:8300/tcp
+      - 8301:8301/udp
+      - 8600:8600/udp
+    command:
+      - /bin/consul
+      - agent
+      - -server
+      - -data-dir=/consul/data
+      - -bootstrap
+      - -client=0.0.0.0
+      - -advertise=127.0.0.1
+      - -ui
+    # volumes:
+    #   - consul_data:/consul/data
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=$GLOBAL_SITE_NAME,master=true
+
+
+  ###############################################
+  # ALL SITES INFRASTRUCTURE DEPLOYMENTS
+  ###############################################
+
+  consul-registrator:
+    privileged: true
+    image: ${CONSUL_REGISTRATOR_IMAGE}
+    stdin_open: true
+    network_mode: host
+    volumes:
+     - /var/run/docker.sock:/tmp/docker.sock
+    tty: true
+    command:
+      - -resync
+      - '30'
+      - -rancherExternalPorts
+      - -cleanup
+      - consul://192.168.73.10:8500
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.dns: "true"
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.global: "true"
+
+  influxdb:
+    image: influxdb:1.5.4-alpine
+    environment:
+      - INFLUXDB_DB=recap
+      - INFLUXDB_HTTP_AUTH_ENABLED=true
+      - INFLUXDB_ADMIN_USER=admin
+      - INFLUXDB_ADMIN_PASSWORD=recap$$123 # double dollar escapes dollar
+    ports:
+      - 8086:8086
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      SERVICE_TAGS: $GLOBAL_SITE_NAME,$RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=$RECAP_INFRASTRUCTURE_LABEL,site=$GLOBAL_SITE_NAME
+      # io.rancher.sidekicks: db-dumper
+
+  logstash:
+    image: ${LOGSTASH_IMAGE}
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=$RECAP_INFRASTRUCTURE_LABEL,site=$GLOBAL_SITE_NAME
+      io.rancher.sidekicks: logstash-config
+    volumes_from:
+      - logstash-config
+    command: "-r"
+    ports:
+      - 5043:5043 # reserved for infrastructure monitoring
+      # - 5044:5044 # reserved for custom use case monitoring
+
+  logstash-config:
+    image: ${LOGSTASH_CONFIG_IMAGE}
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=$RECAP_INFRASTRUCTURE_LABEL,site=$GLOBAL_SITE_NAME
+      io.rancher.container.start_once: "true"
+
+  neo4j:
+    image: neo4j:3.4
+    ports:
+      - 7475:7474
+      - 7687:7687
+    environment:
+      - NEO4J_AUTH=neo4j/password
+      - NEO4J_DBMS_CONNECTOR_BOLT_ENABLED=true
+      - NEO4J_DBMS_CONNECTOR_BOLT_ADDRESS=0.0.0.0:7687
+      - NEO4J_DBMS_CONNECTOR_BOLT_TLS_LEVEL=DISABLED
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      mapping: $UNIQUE_SITE_MAPPING
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=$GLOBAL_SITE_NAME,master=true
+
+  landscaper-api:
+    image: ${LANDSCAPER_API_IMAGE}
+    environment:
+      - PYTHONPATH=/landscaper
+    ports:
+      - "9001:9001"
+    working_dir: /landscaper/landscaper/web
+    command:
+      [
+        "/usr/local/bin/gunicorn",
+        "-b",
+        "0.0.0.0:9001",
+        "-w",
+        "2",
+        "application:APP",
+      ]
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=$GLOBAL_SITE_NAME,master=true
+
+  landscaper:
+    image: ${LANDSCAPER_IMAGE}
+    environment:
+      - PYTHONPATH=/landscaper
+      - OS_TENANT_NAME=
+      - OS_PROJECT_NAME=
+      - OS_TENANT_ID=
+      - OS_USERNAME=
+      - OS_PASSWORD=
+      - OS_AUTH_URL=
+    working_dir: /landscaper
+    command: ["./start.sh", "http://neo4j:7474"]
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=$GLOBAL_SITE_NAME,master=true
+      io.rancher.scheduler.global: "true"
+      io.rancher.sidekicks: landscaper-data, landscaper-testbed-collector, rancher-landscaper-datasource
+    volumes_from:
+      - landscaper-data
+
+  landscaper-testbed-collector:
+    image: ${LANDSCAPER_TESTBED_COLLECTOR_IMAGE}
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=$GLOBAL_SITE_NAME,master=true
+
+    ports:
+      - 34422:34422
+    volumes_from:
+      - landscaper-data
+
+  landscaper-data:
+    image: ${LANDSCAPER_DATA_IMAGE}
+    network_mode: host
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=$GLOBAL_SITE_NAME,master=true
+
+      io.rancher.scheduler.global: "true"
+      io.rancher.container.start_once: "true"
+      io.rancher.container.dns: "true"
+
+  rancher-landscaper-datasource:
+    image: ${RANCHER_LANDSCAPER_DATASOURCE_IMAGE}
+    tty: true
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+
+  site-registrator:
+    image: ${LANDSCAPER_REGISTRATOR_IMAGE}
+    environment:
+      RANCHER_URL: $RANCHER_URL
+      RANCHER_ACCESS_KEY: $RANCHER_ACCESS_KEY
+      RANCHER_SECRET_KEY: $RANCHER_SECRET_KEY
+      GLOBAL_SITE_NAME: $GLOBAL_SITE_NAME
+      RECAP_INFRASTRUCTURE_LABEL: $RECAP_INFRASTRUCTURE_LABEL
+      CONSUL_HTTP_ADDR: http://$GLOBAL_ADDRESS:8500
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      SERVICE_TAGS: $GLOBAL_SITE_NAME,$RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=$RECAP_INFRASTRUCTURE_LABEL,site=$GLOBAL_SITE_NAME
+      io.rancher.container.start_once: "true"
+
+
+  io-server:
+    image: ${IO_SERVER_IMAGE}
+    environment:
+      NETWORK_INFRASTRUCTURE_SERVER_BIND_ADDRESS: 0.0.0.0
+      NETWORK_INFRASTRUCTURE_SERVER_BIND_PORT: '30000'
+      INFRASTRUCTURE_SERVER_SERVICE_THRESHOLD: '2'
+    stdin_open: true
+    tty: true
+    ports:
+    - 30000/tcp
+    labels:
+      io.rancher.scheduler.affinity:host_label: type=$RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.start_once: 'true'
+      io.rancher.container.pull_image: always
+  
+  service-registrator:
+    image: ${SERVICE_REGISTRATOR_IMAGE}
+    stdin_open: true
+    tty: true
+    labels:
+      io.rancher.scheduler.affinity:host_label: type=$GLOBAL_SITE_NAME
+      type: $GLOBAL_SITE_NAME
+      io.rancher.container.pull_image: always
+
+  oo-server:
+    image: ${OO_SERVER_IMAGE}
+    environment:
+      APPLICATION_OPTIMIZATION_OPERATION_MODE: networkclient
+      INFRASTRUCTURE_OPTIMIZATION_OPERATION_MODE: networkclient
+      NETWORK_INFRASTRUCTURE_OPTIMIZATION_URL: http://io-server:30000
+      REGISTRY_URL: http://consul:8500
+      LANDSCAPER_URL: http://landscaper-api:9001
+      ORCHESTRATOR_MODE: periodic
+      ENACTOR_OPERATION_MODE: network
+      ENACTOR_API_URI: http://enactor:8080
+    stdin_open: true
+    tty: true
+    labels:
+      io.rancher.scheduler.affinity:host_label: type=$RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.start_once: 'true'
+      io.rancher.container.pull_image: always
+
+  portal:
+    image: ${PORTAL_IMAGE}
+    stdin_open: true
+    tty: true
+    ports:
+    - 8080:8080/tcp
+    labels:
+      io.rancher.scheduler.affinity:host_label: type=$GLOBAL_SITE_NAME
+      type: $GLOBAL_SITE_NAME
+      io.rancher.container.pull_image: always
+
+  enactor:
+    image: ${ENACTOR_IMAGE}
+    stdin_open: true
+    tty: true
+    ports:
+    - 8081:8080/tcp
+    labels:
+      io.rancher.scheduler.affinity:host_label: type=$GLOBAL_SITE_NAME
+      type: $GLOBAL_SITE_NAME
+      io.rancher.container.pull_image: always

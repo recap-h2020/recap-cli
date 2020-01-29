@@ -1,0 +1,41 @@
+- hosts: localhost
+  gather_facts: false
+  roles:
+    # - security_groups
+    # - key_pair
+    # - ignition_config
+    - host
+  vars:
+    VM_NAME: '{{ VM_NAME }}'
+    NETWORK_NAME: '{{ NETWORK_NAME }}'
+    SITE_NAME: '{{ SITE_NAME }}'
+    TYPE: '{{ TYPE }}'
+    MASTER_HOST: '{{ MASTER_HOST }}'
+    PUBLIC_KEY_FILE: '{{ PUBLIC_KEY_FILE }}'
+    PRIVATE_KEY_FILE: '{{ PRIVATE_KEY_FILE }}'
+    VM_FLAVOUR: '{{ VM_FLAVOUR }}'
+    VM_AZ: '{{ VM_AZ }}'
+- hosts: localhost
+  gather_facts: no
+  tasks:
+  - name: Add master VM to inventory
+    add_host:
+      name: 'recap_master'
+      ansible_host: '{{ MASTER_HOST }}'
+      ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+      ansible_user: 'core'
+      ansible_ssh_private_key_file: '{{ PRIVATE_KEY_FILE }}'
+      ansible_python_interpreter: '/home/core/bin/python'
+  - debug:
+      var: recap_host
+      verbosity: 2
+  - name: Wait up to 300 seconds for port 22 (SSH) to become open
+    wait_for:
+      host: '{{ recap_host.server.private_v4 }}'
+      port: 22
+      delay: 30
+    delegate_to: 'recap_master'
+- hosts: '{{ VM_NAME }}'
+  gather_facts: false
+  roles:
+    - prepare_host

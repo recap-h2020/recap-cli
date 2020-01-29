@@ -1,0 +1,10 @@
+- name: Install Python
+  include_role:
+    name: defunctzombie.coreos-bootstrap
+  retries: 3
+  delay: 10
+- name: Install docker-compose
+  include_role:
+    name: hp41.coreos-docker-compose
+  vars:
+    ansible_become: yes

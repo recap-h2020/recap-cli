@@ -1,0 +1,11 @@
+- hosts: localhost
+  gather_facts: false
+  roles:
+    - network
+    - dc_internal_router
+  vars:
+    NETWORK_NAME: '{{ NETWORK_NAME }}'
+    SUBNET_NAME: '{{ SUBNET_NAME }}'
+    NETWORK_ADDRESS: '{{ NETWORK_ADDRESS }}'
+    ROUTER_NAME: '{{ ROUTER_NAME }}'
+    PORT_IP: '{{ ROUTER_IP }}'

@@ -1,0 +1,35 @@
+- name: Add interfaces to routers
+  shell: |
+    openstack port create \
+      --fixed-ip subnet='{{ INTER_SUBNET_NAME }}',ip-address='{{ item.INTER_PORT }}' \
+      --network '{{ INTER_NETWORK_NAME }}' \
+      port_'{{ item.ROUTER_NAME }}'_'{{ INTER_NETWORK_NAME }}'
+    openstack router add port \
+      '{{ item.ROUTER_NAME }}' \
+      port_'{{ item.ROUTER_NAME }}'_'{{ INTER_NETWORK_NAME }}'
+  with_items: "{{ SITES }}"
+
+- name: Fix initial interfaces for routers
+  shell: |
+    openstack port create \
+      --fixed-ip subnet='{{ INITIAL_SUBNET_NAME }}',ip-address='{{ INITIAL_ROUTER_IP }}' \
+      --network '{{ INITIAL_NETWORK_NAME }}' \
+      port_'{{ INITIAL_ROUTER_NAME }}'_'{{ INITIAL_NETWORK_NAME }}'
+    openstack router add port \
+      '{{ INITIAL_ROUTER_NAME }}' \
+      port_'{{ INITIAL_ROUTER_NAME }}'_'{{ INITIAL_NETWORK_NAME }}'
+
+- name: Set routes on routers
+  shell: |
+    external_gateway_info=$(openstack router show '{{ item.ROUTER_NAME }}' -c external_gateway_info -f value)
+    if [[ "$external_gateway_info" == "None" ]]; then
+      openstack router set \
+        --route destination='{{ item.OTHER_NETWORK_ADDRESS }}',gateway='{{ item.OTHER_PORT }}' \
+        --route destination='0.0.0.0/0',gateway='{{ item.OTHER_PORT }}' \
+        '{{ item.ROUTER_NAME }}'
+    else
+      openstack router set \
+        --route destination='{{ item.OTHER_NETWORK_ADDRESS }}',gateway='{{ item.OTHER_PORT }}' \
+        '{{ item.ROUTER_NAME }}'
+    fi
+  with_items: "{{ SITES }}"

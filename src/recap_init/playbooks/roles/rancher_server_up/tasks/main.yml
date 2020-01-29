@@ -1,0 +1,185 @@
+- name: "debug"
+  debug:
+    var: RANCHER_SITES
+
+- name: Install docker-py
+  become: "{{ PIP_AS_ROOT | bool }}"
+  pip:
+    name: docker-py
+    executable: "{{ PIP_EXECUTABLE }}"
+
+- set_fact:
+    username: "{{ RANCHER_USERNAME }}"
+    password: "{{ RANCHER_PASSWORD }}"
+
+- name: Create rancher master
+  docker_container:
+    name: rs
+    pull: true
+    image: rancher/server:v1.6.26
+    state: started
+    ports:
+      - "8080:8080"
+    volumes:
+      - /srv/rancher/_data:/var/lib/mysql
+
+- name: Create custom facts folder
+  become: yes
+  file:
+    path: "/etc/ansible/facts.d"
+    state: "directory"
+
+- name: Wait until Rancher API becomes available
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:8080/v1"
+    status_code: 200,401
+  register: result
+  until: result.status == 200 or result.status == 401
+  retries: 60
+  delay: 10
+
+- name: update facts
+  setup: filter=ansible_local
+
+- name: Create global API key
+  become: yes
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:8080/v2-beta/apikeys"
+    method: POST
+    body: '{"accountId":"1a1"}'
+    body_format: json
+    status_code: 201 #created
+    creates: /etc/ansible/facts.d/rancher_global_api.fact
+    dest: /etc/ansible/facts.d/rancher_global_api.fact
+
+- name: Enable local auth
+  become: yes
+  uri:
+    url: http://{{ ansible_default_ipv4.address }}:8080/v1/localAuthConfig
+    method: POST
+    body: '{"type": "localAuthConfig","accessMode": "unrestricted","enabled": true,"name": "OMI","username": "{{ username }}", "password": "{{ password }}"}'
+    body_format: json
+    status_code: 201 #created
+    creates: /etc/ansible/facts.d/rancher_auth.fact
+    dest: /etc/ansible/facts.d/rancher_auth.fact
+
+- name: update facts
+  setup: filter=ansible_local
+
+- name: Wait until Rancher cattle template becomes available
+  uri:
+    user: "{{ ansible_local.rancher_global_api.publicValue }}"
+    password: "{{ ansible_local.rancher_global_api.secretValue }}"
+    url: "http://{{ ansible_default_ipv4.address }}:8080/v2-beta/projecttemplates/1pt5"
+    status_code: 200
+  register: templateavail
+  until: templateavail.status == 200
+  retries: 60
+  delay: 10
+
+- name: Force private Rancher registration URL
+  become: yes
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:8080/v2-beta/settings/api.host"
+    user: "{{ ansible_local.rancher_global_api.publicValue }}"
+    password: "{{ ansible_local.rancher_global_api.secretValue }}"
+    method: PUT
+    body: '{"value": "http://{{ ansible_default_ipv4.address }}:8080"}'
+    body_format: json
+    status_code: 200 #ok?
+    creates: /etc/ansible/facts.d/rancher_registration_url.fact
+    dest: /etc/ansible/facts.d/rancher_registration_url.fact
+
+- name: Create Environment
+  become: yes
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:8080/v2-beta/projects/"
+    user: "{{ ansible_local.rancher_global_api.publicValue }}"
+    password: "{{ ansible_local.rancher_global_api.secretValue }}"
+    method: POST
+    body: '{ "allowSystemRole": false, "projectTemplateId": "1pt5", "description": "RECAP {{ item }} Environment", "hostRemoveDelaySeconds": 0, "name": "{{ item }}" }'
+    body_format: json
+    status_code: 201 #created
+    creates: /etc/ansible/facts.d/rancher_recap_environment_{{ item }}.fact
+    dest: /etc/ansible/facts.d/rancher_recap_environment_{{ item }}.fact
+  with_items: "{{ RANCHER_SITES }}"
+
+- name: update facts
+  setup: filter=ansible_local
+
+- name: Display all variables/facts known for a host
+  debug:
+    msg: "http://{{ ansible_default_ipv4.address }}:8080/v1/projects/{{ hostvars[inventory_hostname]['ansible_local']['rancher_recap_environment_'+item]['id'] }}/apikey"
+  with_items: "{{ RANCHER_SITES }}"
+
+- name: Create RECAP environment API key
+  become: yes
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:8080/v1/projects/{{ hostvars[inventory_hostname]['ansible_local']['rancher_recap_environment_'+item]['id'] }}/apikey"
+    user: "{{ ansible_local.rancher_global_api.publicValue }}"
+    password: "{{ ansible_local.rancher_global_api.secretValue }}"
+    method: POST
+    body: '{"type":"apikey","accountId":"1a5","name":"admin","description":null,"created":null,"kind":null,"removed":null,"uuid":null}'
+    body_format: json
+    status_code: 201 #created
+    creates: /etc/ansible/facts.d/rancher_recap_api_{{ item }}.fact
+    dest: /etc/ansible/facts.d/rancher_recap_api_{{ item }}.fact
+  with_items: "{{ RANCHER_SITES }}"
+
+- name: update facts
+  setup: filter=ansible_local
+
+- name: Invoke Rancher host registration token generation for RECAP environment
+  become: yes
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:8080/v2-beta/projects/{{ hostvars[inventory_hostname]['ansible_local']['rancher_recap_environment_'+item]['id'] }}/registrationtokens"
+    user: "{{ ansible_local.rancher_global_api.publicValue }}"
+    password: "{{ ansible_local.rancher_global_api.secretValue }}"
+    method: POST
+    status_code: 201 #created
+    creates: /etc/ansible/facts.d/rancher_recap_token_request_{{ item }}.fact
+    dest: /etc/ansible/facts.d/rancher_recap_token_request_{{ item }}.fact
+  with_items: "{{ RANCHER_SITES }}"
+
+- name: Get Rancher host registration token for RECAP environment
+  become: yes
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:8080/v2-beta/projects/{{ hostvars[inventory_hostname]['ansible_local']['rancher_recap_environment_'+item]['id'] }}/registrationtokens"
+    user: "{{ ansible_local.rancher_global_api.publicValue }}"
+    password: "{{ ansible_local.rancher_global_api.secretValue }}"
+    method: GET
+    status_code: 200 #created
+    creates: /etc/ansible/facts.d/rancher_recap_token_{{ item }}.fact
+    dest: /etc/ansible/facts.d/rancher_recap_token_{{ item }}.fact
+  with_items: "{{ RANCHER_SITES }}"
+
+- name: Add Registry for RECAP environment
+  become: yes
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:8080/v2-beta/projects/{{ hostvars[inventory_hostname]['ansible_local']['rancher_recap_environment_'+item]['id'] }}/registries"
+    user: "{{ ansible_local.rancher_global_api.publicValue }}"
+    password: "{{ ansible_local.rancher_global_api.secretValue }}"
+    method: POST
+    body: '{"serverAddress": "{{ RANCHER_REGISTRY_URL }}","description": "{{ RANCHER_REGISTRY_URL }}", "name": "{{ RANCHER_REGISTRY_URL }}"}'
+    body_format: json
+    status_code: 201 #created
+    creates: /etc/ansible/facts.d/rancher_recap_registry_{{ item }}.fact
+    dest: /etc/ansible/facts.d/rancher_recap_registry_{{ item }}.fact
+  with_items: "{{ RANCHER_SITES }}"
+
+- name: update facts
+  setup: filter=ansible_local
+
+- name: Activate Registry Credentials for RECAP environment
+  become: yes
+  uri:
+    url: "http://{{ ansible_default_ipv4.address }}:8080/v2-beta/projects/{{ hostvars[inventory_hostname]['ansible_local']['rancher_recap_environment_'+item]['id'] }}/registryCredentials"
+    user: "{{ ansible_local.rancher_global_api.publicValue }}"
+    password: "{{ ansible_local.rancher_global_api.secretValue }}"
+    method: POST
+    body: '{"registryId": "{{ hostvars[inventory_hostname]["ansible_local"]["rancher_recap_registry_"+item]["id"] }}","email": "not-really@required.anymore","publicValue": "{{ RANCHER_REGISTRY_USERNAME }}","secretValue": "{{ RANCHER_REGISTRY_PASSWORD }}","description": "omi-gitlab personal acces token","name": null}'
+    body_format: json
+    status_code: 201 #created
+    creates: /etc/ansible/facts.d/rancher_recap_registry_credential_{{ item }}.fact
+    dest: /etc/ansible/facts.d/rancher_recap_registry_credential_{{ item }}.fact
+  with_items: "{{ RANCHER_SITES }}"

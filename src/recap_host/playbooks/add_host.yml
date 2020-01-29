@@ -1,0 +1,11 @@
+- hosts: '{{ targets }}'
+  roles:
+    - rancher_agent_up
+  vars:
+    RANCHER_SERVER_URL: '{{ RANCHER_SERVER_URL }}'
+    RANCHER_ENV_ID: '{{ RANCHER_ENV_ID }}'
+    RANCHER_REG_TOKEN: '{{ RANCHER_REG_TOKEN }}'
+    HOST_TYPE: '{{ HOST_TYPE }}'
+    HOST_SITE: '{{ HOST_SITE }}'
+    HOST_ID: '{{ HOST_ID }}'
+    EXTRA_LABELS: '{{ EXTRA_LABELS }}'

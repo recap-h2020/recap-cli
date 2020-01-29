@@ -1,0 +1,6 @@
+- hosts: rancher-server
+  roles:
+    - update_landscaper
+  vars:
+    INFRA_HOST: '{{ INFRA_HOST }}'
+    USER_HOSTS: '{{ USER_HOSTS }}'

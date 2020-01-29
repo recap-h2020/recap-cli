@@ -1,0 +1,26 @@
+- hosts: localhost
+  gather_facts: false
+  roles:
+    - security_groups
+    - key_pair
+    - ignition_config
+    - external_gateway
+    - rancher_server_vm
+  vars:
+    VM_NAME: '{{ VM_NAME }}'
+    NETWORK_NAME: '{{ NETWORK_NAME }}'
+    SITE_NAME: '{{ SITE_NAME }}'
+    PUBLIC_KEY_FILE: '{{ PUBLIC_KEY_FILE }}'
+    ROUTER_NAME: '{{ ROUTER_NAME }}'
+- hosts: localhost
+  gather_facts: no
+  tasks:
+  - name: Wait up to 300 seconds for port 22 (SSH) to become open
+    wait_for:
+      host: '{{ rancher_vm.server.public_v4 }}'
+      port: 22
+      delay: 30
+- hosts: '{{ VM_NAME }}'
+  gather_facts: false
+  roles:
+    - prepare_host

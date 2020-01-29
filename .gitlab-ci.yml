@@ -1,0 +1,46 @@
+stages:
+  - build
+  - test
+  - package
+
+build:
+  stage: build
+  script:
+    - docker login -u gitlab-ci-token -p ${CI_BUILD_TOKEN} ${CI_REGISTRY}
+    - docker build -t ${CI_REGISTRY_IMAGE}:latest src
+    - docker tag ${CI_REGISTRY_IMAGE}:latest ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_NAME}
+    - docker push ${CI_REGISTRY_IMAGE}:latest
+    - docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_NAME}
+
+test:
+  stage: test
+  before_script:
+    - apk add util-linux
+  script:
+    - cd src
+    - cp .env.example .env
+    - script -q -c "./recap help"
+
+build-doc:
+  image: schanzel/pandoc
+  stage: build
+  script:
+    - pandoc --variable urlcolor=cyan -o doc/reference-manual.pdf doc/reference-manual.md
+    - pandoc --variable urlcolor=cyan -o doc/installation-guide.pdf doc/installation-guide.md
+  artifacts:
+    name: documentation
+    paths:
+      - doc/reference-manual.pdf
+      - doc/installation-guide.pdf
+
+package:
+  stage: package
+  script:
+    - mkdir -p recap-cli
+    - cp src/recap recap-cli/
+    - cp src/.env.example recap-cli/.env
+    - cp doc/reference-manual.pdf recap-cli/
+  artifacts:
+    name: bundle
+    paths:
+      - recap-cli/

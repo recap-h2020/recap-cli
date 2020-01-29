@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+
+IMAGE=omi-registry.e-technik.uni-ulm.de/students/hiwi/recap-cli:latest
+
+if [[ -n $1 && $1 = '--build' ]]; then
+  echo ''
+  echo 'Building Docker Image...'
+  echo '\n\n'
+  docker build -t ${IMAGE} .
+  echo ''
+  echo 'Build Complete'
+  echo 'Invoking Now'
+  echo '\n\n'
+  args=${@:2}
+elif [[ -n $1 && $1 = '--pull' ]]; then
+  echo ''
+  echo 'Pulling New Docker Image Version...'
+  echo '\n\n'
+  docker pull ${IMAGE}
+  echo ''
+  echo 'Pull Complete'
+  echo 'Invoking Now'
+  echo '\n\n'
+  args=${@:2}
+else
+  args=${@}
+fi
+
+docker run -it \
+  -v $(realpath .env):/opt/app/.env \
+  ${IMAGE} ${args}
+

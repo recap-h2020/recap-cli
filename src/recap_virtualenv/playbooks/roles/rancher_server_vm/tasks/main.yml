@@ -1,0 +1,29 @@
+- name: Launch VM
+  os_server:
+    image: coreos-2079
+    name: '{{ VM_NAME }}'
+    floating_ip_pools: extnet
+    key_name: recap_demo
+    availability_zone: blade
+    flavor: medium
+    state: present
+    security_groups:
+      - sec_recap_demo
+      - default
+    network: '{{ NETWORK_NAME }}'
+    timeout: 360
+    userdata: '{{ lookup("file", "ignition/ignition-server.ign") | string }}'
+    meta:
+      groups: '{{ SITE_NAME }},rancher-server'
+  register: rancher_vm
+- name: Add VM to inventory
+  add_host:
+    name: '{{ rancher_vm.server.name }}'
+    groups:
+      - '{{ SITE_NAME }}'
+      - 'rancher-server'
+    ansible_host: '{{ rancher_vm.server.public_v4 }}'
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+    ansible_user: 'core'
+    ansible_ssh_private_key_file: '{{ PRIVATE_KEY_FILE }}'
+    ansible_python_interpreter: '/home/core/bin/python'

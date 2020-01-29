@@ -1,0 +1,6 @@
+.idea
+*.pyc
+*.retry
+doc/*.pdf
+src/.env
+.venv

@@ -1,0 +1,9 @@
+- name: Install Python
+  become: yes
+  script: install-python.sh
+  args:
+    creates: /opt/bin/python
+- name: Install docker-py
+  become: yes
+  pip:
+    name: docker-py

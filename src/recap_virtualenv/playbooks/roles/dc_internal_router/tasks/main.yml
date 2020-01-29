@@ -1,0 +1,7 @@
+- name: create internal router
+  os_router:
+    name: "{{ ROUTER_NAME }}"
+    state: present
+    wait: yes
+    admin_state_up: yes
+    enable_snat: yes

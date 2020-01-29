@@ -1,0 +1,8 @@
+ansible==2.7.15
+openstacksdk==0.17.2
+shade==1.30.0
+python-openstackclient==3.16.1
+docker-py==1.10.6
+https://github.com/theskumar/python-dotenv/archive/master.zip
+git+https://github.com/rancher/client-python.git@master
+jsonpickle==1.1

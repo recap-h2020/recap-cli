@@ -1,0 +1,34 @@
+version: '2'
+services:
+  grafana-config:
+    start_on_create: true
+  # lb:
+  #   start_on_create: true
+  #   lb_config:
+  #     certs: []
+  #     port_rules:
+  #     - priority: 1
+  #       protocol: http
+  #       service: dashboard
+  #       source_port: 80
+  #       target_port: 3000
+  #   health_check:
+  #     response_timeout: 2000
+  #     healthy_threshold: 2
+  #     port: 42
+  #     unhealthy_threshold: 3
+  #     initializing_timeout: 60000
+  #     interval: 2000
+  #     reinitializing_timeout: 60000
+  dashboard:
+    start_on_create: true
+  registry:
+    start_on_create: true
+  influxdb:
+    start_on_create: true
+  logstash:
+    start_on_create: true
+  logstash-config:
+    start_on_create: true
+  neo4j:
+    start_on_create: true

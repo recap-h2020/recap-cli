@@ -1,0 +1,31 @@
+version: "2"
+services:
+  metricbeat:
+    image: omi-registry.e-technik.uni-ulm.de/recap-demo/applications/metricbeat:latest
+    environment:
+      LS_HOSTS: logstash:5043
+      RECAP_ENVIRONMENT: rancher
+      RECAP_LAYER: physical
+    volumes:
+      - /proc:/hostfs/proc:ro
+      - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
+      - /:/hostfs:ro
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=r_user,site=$GLOBAL_SITE_NAME
+      io.rancher.scheduler.global: "true"
+  landscaper-hwinfo-provider:
+    image: omi-registry.e-technik.uni-ulm.de/recap/platform/code/monitoring/landscaper/landscaper-hwinfo-provider:latest
+    network_mode: host
+    privileged: true
+    ports:
+      - 34421:34421
+    labels:
+      site: $GLOBAL_SITE_NAME
+      type: $RECAP_INFRASTRUCTURE_LABEL
+      io.rancher.container.pull_image: always
+      io.rancher.scheduler.affinity:host_label: type=r_user,site=$GLOBAL_SITE_NAME
+      io.rancher.scheduler.global: "true"
+      io.rancher.container.dns: "true"

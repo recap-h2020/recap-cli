@@ -1,0 +1,11 @@
+- name: update landscape
+  uri:
+    url: "http://{{ INFRA_HOST }}:34422"
+    method: POST
+    body: "{{ USER_HOSTS }}"
+    body_format: json
+    status_code: 200,204
+  register: result
+  until: result is not failed
+  retries: 1
+  delay: 1
