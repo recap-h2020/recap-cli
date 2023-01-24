@@ -1,4 +1,4 @@
-ansible==2.7.15
+ansible==7.0.0
 openstacksdk==0.17.2
 shade==1.30.0
 python-openstackclient==3.16.1
